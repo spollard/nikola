@@ -1368,6 +1368,8 @@ class Nikola(object):
         for h in local_context['template_hooks'].values():
             h.context = context
 
+        local_context['all_posts'] = self.all_posts
+
         for func in self.config['GLOBAL_CONTEXT_FILLER']:
             func(local_context, template_name)
 
