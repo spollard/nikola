@@ -11,6 +11,7 @@
 # Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
+#
 # The above copyright notice and this permission notice
 # shall be included in all copies or substantial portions of
 # the Software.
@@ -1369,6 +1370,7 @@ class Nikola(object):
             h.context = context
 
         local_context['all_posts'] = self.all_posts
+        local_context['posts'] = self.posts
 
         for func in self.config['GLOBAL_CONTEXT_FILLER']:
             func(local_context, template_name)
