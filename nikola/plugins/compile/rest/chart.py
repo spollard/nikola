@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -28,12 +28,12 @@
 from docutils import nodes
 from docutils.parsers.rst import Directive, directives
 
+from nikola.plugin_categories import RestExtension
+
 try:
     import pygal
 except ImportError:
-    pygal = None  # NOQA
-
-from nikola.plugin_categories import RestExtension
+    pygal = None
 
 _site = None
 
@@ -48,7 +48,7 @@ class Plugin(RestExtension):
         global _site
         _site = self.site = site
         directives.register_directive('chart', Chart)
-        return super(Plugin, self).set_site(site)
+        return super().set_site(site)
 
 
 class Chart(Directive):

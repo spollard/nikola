@@ -65,12 +65,14 @@
 * `Luis Miguel Morillas <https://github.com/lmorillas>`_
 * `Manuel Kaufmann <https://github.com/humitos>`_
 * `Manuel Thalmann <https://github.com/manuth>`_
+* `Marcel Stimberg <https://github.com/mstimberg>`_
 * `Marcelo MD <https://github.com/marcelomd>`_
 * `Marcos Dione <https://github.com/StyXman>`_
 * `Mariano Guerra <https://github.com/marianoguerra>`_
 * `Mario Pozzo <https://github.com/camboris>`_
 * `Mark Eichin <https://github.com/eichin>`_
 * `Martin Bless <https://github.com/marble>`_
+* `Martin McCallion <https://github.com/devilgate>`_
 * `Martin Michlmayr <https://github.com/tbm>`_
 * `Martin Wimpress <https://github.com/wimpr1m>`_
 * `Martín Gaitán <https://github.com/mgaitan>`_

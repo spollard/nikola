@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -26,19 +26,17 @@
 
 """Render the taxonomy overviews, classification pages and feeds."""
 
-import blinker
 import os
-import natsort
 from collections import defaultdict
 from copy import copy
-try:
-    from urlparse import urljoin
-except ImportError:
-    from urllib.parse import urljoin  # NOQA
+from urllib.parse import urljoin
 
-from nikola.plugin_categories import Task
+import blinker
+import natsort
+
 from nikola import utils, hierarchy_utils
 from nikola.nikola import _enclosure
+from nikola.plugin_categories import Task
 
 
 class RenderTaxonomies(Task):
@@ -53,11 +51,12 @@ class RenderTaxonomies(Task):
         context = copy(context)
         context["kind"] = "{}_index".format(taxonomy.classification_name)
         sorted_links = []
-        sorted_links_all = []
         for other_lang in sorted(self.site.config['TRANSLATIONS'].keys()):
-            sorted_links_all.append((other_lang, None, None))
             if other_lang != lang:
                 sorted_links.append((other_lang, None, None))
+        # Put the current language in front, so that it appears first in links
+        # (Issue #3248)
+        sorted_links_all = [(lang, None, None)] + sorted_links
         context['has_other_languages'] = True
         context['other_languages'] = sorted_links
         context['all_languages'] = sorted_links_all

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -29,14 +29,13 @@
 from docutils import nodes
 from docutils.parsers.rst import Directive, directives
 
+from nikola.plugin_categories import RestExtension
+from nikola.utils import req_missing
+
 try:
     import micawber
 except ImportError:
-    micawber = None  # NOQA
-
-
-from nikola.plugin_categories import RestExtension
-from nikola.utils import req_missing
+    micawber = None
 
 
 class Plugin(RestExtension):
@@ -49,7 +48,7 @@ class Plugin(RestExtension):
         self.site = site
         directives.register_directive('media', Media)
         self.site.register_shortcode('media', _gen_media_embed)
-        return super(Plugin, self).set_site(site)
+        return super().set_site(site)
 
 
 class Media(Directive):

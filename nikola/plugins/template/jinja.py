@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -24,20 +24,20 @@
 # OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-
 """Jinja template handler."""
 
-import os
 import io
 import json
+import os
+
+from nikola.plugin_categories import TemplateSystem
+from nikola.utils import makedirs, req_missing, sort_posts, _smartjoin_filter
+
 try:
     import jinja2
     from jinja2 import meta
 except ImportError:
-    jinja2 = None  # NOQA
-
-from nikola.plugin_categories import TemplateSystem
-from nikola.utils import makedirs, req_missing, sort_posts, _smartjoin_filter
+    jinja2 = None
 
 
 class JinjaTemplates(TemplateSystem):

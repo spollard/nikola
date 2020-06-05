@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -26,16 +26,18 @@
 
 """The main function of Nikola."""
 
-import imp
+import importlib.util
 import os
 import shutil
 import sys
+import textwrap
 import traceback
+import doit.cmd_base
 from collections import defaultdict
 
 from blinker import signal
 from doit.cmd_auto import Auto as DoitAuto
-from doit.cmd_base import TaskLoader
+from doit.cmd_base import TaskLoader, _wrap
 from doit.cmd_clean import Clean as DoitClean
 from doit.cmd_completion import TabCompletion
 from doit.cmd_help import Help as DoitHelp
@@ -43,19 +45,18 @@ from doit.cmd_run import Run as DoitRun
 from doit.doit_cmd import DoitMain
 from doit.loader import generate_tasks
 from doit.reporter import ExecutedOnlyReporter
-from logbook import NullHandler
 
 from . import __version__
 from .nikola import Nikola
 from .plugin_categories import Command
-from .utils import (LOGGER, STDERR_HANDLER, STRICT_HANDLER,
-                    ColorfulStderrHandler, get_root_dir, req_missing,
-                    sys_decode)
+from .log import configure_logging, LOGGER, ColorfulFormatter, LoggingMode
+from .utils import get_root_dir, req_missing, sys_decode
 
 try:
     import readline  # NOQA
 except ImportError:
     pass  # This is only so raw_input/input does nicer things if it's available
+
 
 config = {}
 
@@ -69,7 +70,7 @@ def main(args=None):
     if sys.stderr.isatty() and os.name != 'nt' and os.getenv('NIKOLA_MONO') is None and os.getenv('TERM') != 'dumb':
         colorful = True
 
-    ColorfulStderrHandler._colorful = colorful
+    ColorfulFormatter._colorful = colorful
 
     if args is None:
         args = sys.argv[1:]
@@ -88,17 +89,14 @@ def main(args=None):
             break
 
     quiet = False
-    strict = False
     if len(args) > 0 and args[0] == 'build' and '--strict' in args:
-        LOGGER.notice('Running in strict mode')
-        STRICT_HANDLER.push_application()
-        strict = True
-    if len(args) > 0 and args[0] == 'build' and '-q' in args or '--quiet' in args:
-        NullHandler().push_application()
+        LOGGER.info('Running in strict mode')
+        configure_logging(LoggingMode.STRICT)
+    elif len(args) > 0 and args[0] == 'build' and '-q' in args or '--quiet' in args:
+        configure_logging(LoggingMode.QUIET)
         quiet = True
-    if not quiet and not strict:
-        NullHandler().push_application()
-        STDERR_HANDLER[0].push_application()
+    else:
+        configure_logging()
 
     global config
 
@@ -115,36 +113,28 @@ def main(args=None):
             os.chdir(root)
         # Help and imports don't require config, but can use one if it exists
         needs_config_file = (argname != 'help') and not argname.startswith('import_')
-        if needs_config_file:
-            if root is None:
-                LOGGER.error("The command could not be executed: You're not in a nikola website.")
-                return 1
-            else:
-                LOGGER.debug("Website root: '{0}'".format(root))
+        LOGGER.debug("Website root: %r", root)
     else:
         needs_config_file = False
 
-    old_path = sys.path
-    old_modules = sys.modules
-
+    sys.path.insert(0, os.path.dirname(conf_filename))
     try:
-        sys.path = sys.path[:]
-        sys.modules = sys.modules.copy()
-        sys.path.insert(0, os.path.dirname(conf_filename))
-        with open(conf_filename, "rb") as file:
-            config = imp.load_module(conf_filename, file, conf_filename, (None, "rb", imp.PY_SOURCE)).__dict__
+        spec = importlib.util.spec_from_file_location("conf", conf_filename)
+        conf = importlib.util.module_from_spec(spec)
+        # Preserve caching behavior of `import conf` if the filename matches
+        if os.path.splitext(os.path.basename(conf_filename))[0] == "conf":
+            sys.modules["conf"] = conf
+        spec.loader.exec_module(conf)
+        config = conf.__dict__
     except Exception:
-        config = {}
         if os.path.exists(conf_filename):
-            msg = traceback.format_exc(0)
+            msg = traceback.format_exc()
             LOGGER.error('"{0}" cannot be parsed.\n{1}'.format(conf_filename, msg))
             return 1
         elif needs_config_file and conf_filename_changed:
             LOGGER.error('Cannot find configuration file "{0}".'.format(conf_filename))
             return 1
-    finally:
-        sys.path = old_path
-        sys.modules = old_modules
+        config = {}
 
     if conf_filename_changed:
         LOGGER.info("Using config file '{0}'".format(conf_filename))
@@ -239,7 +229,7 @@ class Build(DoitRun):
             }
         )
         self.cmd_options = tuple(opts)
-        super(Build, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
 
 
 class Clean(DoitClean):
@@ -308,7 +298,7 @@ class DoitNikola(DoitMain):
 
     def __init__(self, nikola, quiet=False):
         """Initialzie DoitNikola."""
-        super(DoitNikola, self).__init__()
+        super().__init__()
         self.nikola = nikola
         nikola.doit = self
         self.task_loader = self.TASK_LOADER(nikola, quiet)
@@ -378,7 +368,7 @@ class DoitNikola(DoitMain):
                              "existing Nikola site.")
                 return 3
         try:
-            return super(DoitNikola, self).run(cmd_args)
+            return super().run(cmd_args)
         except Exception:
             LOGGER.error('An unhandled exception occurred.')
             if self.nikola.debug or self.nikola.show_tracebacks:
@@ -390,6 +380,53 @@ class DoitNikola(DoitMain):
     def print_version():
         """Print Nikola version."""
         print("Nikola v" + __version__)
+
+
+# Override Command.help() to make it more readable and to remove
+# some doit-specific stuff. Based on doit's implementation.
+# (see Issue #3342)
+def _command_help(self: Command):
+    """Return help text for a command."""
+    text = []
+
+    usage = "{} {} {}".format(self.bin_name, self.name, self.doc_usage)
+    text.extend(textwrap.wrap(usage, subsequent_indent='  '))
+    text.extend(_wrap(self.doc_purpose, 4))
+
+    text.append("\nOptions:")
+    options = defaultdict(list)
+    for opt in self.cmdparser.options:
+        options[opt.section].append(opt)
+    for section, opts in sorted(options.items()):
+        if section:
+            section_name = '\n{}'.format(section)
+            text.extend(_wrap(section_name, 2))
+        for opt in opts:
+            # ignore option that cant be modified on cmd line
+            if not (opt.short or opt.long):
+                continue
+            text.extend(_wrap(opt.help_param(), 4))
+            opt_help = opt.help
+            if '%(default)s' in opt_help:
+                opt_help = opt.help % {'default': opt.default}
+            elif opt.default != '' and opt.default is not False and opt.default is not None:
+                opt_help += ' [default: {}]'.format(opt.default)
+            opt_choices = opt.help_choices()
+            desc = '{} {}'.format(opt_help, opt_choices)
+            text.extend(_wrap(desc, 8))
+
+            # print bool inverse option
+            if opt.inverse:
+                text.extend(_wrap('--{}'.format(opt.inverse), 4))
+                text.extend(_wrap('opposite of --{}'.format(opt.long), 8))
+
+    if self.doc_description is not None:
+        text.append("\n\nDescription:")
+        text.extend(_wrap(self.doc_description, 4))
+    return "\n".join(text)
+
+
+doit.cmd_base.Command.help = _command_help
 
 
 def levenshtein(s1, s2):
@@ -424,7 +461,7 @@ def _print_exception():
     """Print an exception in a friendlier, shorter style."""
     etype, evalue, _ = sys.exc_info()
     LOGGER.error(''.join(traceback.format_exception(etype, evalue, None, limit=0, chain=False)).strip())
-    LOGGER.notice("To see more details, run Nikola in debug mode (set environment variable NIKOLA_DEBUG=1) or use NIKOLA_SHOW_TRACEBACKS=1")
+    LOGGER.warning("To see more details, run Nikola in debug mode (set environment variable NIKOLA_DEBUG=1) or use NIKOLA_SHOW_TRACEBACKS=1")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -26,23 +26,19 @@
 
 """Page compiler plugin for Markdown."""
 
-
 import io
+import json
 import os
 import threading
-import json
-
-try:
-    from markdown import Markdown
-except ImportError:
-    Markdown = None  # NOQA
-    nikola_extension = None
-    gist_extension = None
-    podcast_extension = None
 
 from nikola import shortcodes as sc
 from nikola.plugin_categories import PageCompiler
 from nikola.utils import makedirs, req_missing, write_metadata, LocaleBorg, map_metadata
+
+try:
+    from markdown import Markdown
+except ImportError:
+    Markdown = None
 
 
 class ThreadLocalMarkdown(threading.local):
@@ -79,7 +75,7 @@ class CompileMarkdown(PageCompiler):
 
     def set_site(self, site):
         """Set Nikola site."""
-        super(CompileMarkdown, self).set_site(site)
+        super().set_site(site)
         self.config_dependencies = []
         extensions = []
         for plugin_info in self.get_compiler_extensions():

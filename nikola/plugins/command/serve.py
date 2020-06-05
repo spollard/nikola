@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -32,18 +32,9 @@ import re
 import signal
 import socket
 import webbrowser
-try:
-    from BaseHTTPServer import HTTPServer
-    from SimpleHTTPServer import SimpleHTTPRequestHandler
-except ImportError:
-    from http.server import HTTPServer  # NOQA
-    from http.server import SimpleHTTPRequestHandler  # NOQA
-
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import BytesIO as StringIO  # NOQA
-
+from http.server import HTTPServer
+from http.server import SimpleHTTPRequestHandler
+from io import BytesIO as StringIO
 
 from nikola.plugin_categories import Command
 from nikola.utils import dns_sd
@@ -70,7 +61,7 @@ class CommandServe(Command):
             'long': 'port',
             'default': 8000,
             'type': int,
-            'help': 'Port number (default: 8000)',
+            'help': 'Port number',
         },
         {
             'name': 'address',
@@ -78,7 +69,7 @@ class CommandServe(Command):
             'long': 'address',
             'type': str,
             'default': '',
-            'help': 'Address to bind (default: 0.0.0.0 -- all local IPv4 interfaces)',
+            'help': 'Address to bind, defaults to all local IPv4 interfaces',
         },
         {
             'name': 'detach',
@@ -141,13 +132,14 @@ class CommandServe(Command):
             sa = httpd.socket.getsockname()
             if ipv6:
                 server_url = "http://[{0}]:{1}/".format(*sa)
-            elif sa[0] == '0.0.0.0':
-                server_url = "http://127.0.0.1:{1}/".format(*sa)
             else:
                 server_url = "http://{0}:{1}/".format(*sa)
             self.logger.info("Serving on {0} ...".format(server_url))
 
             if options['browser']:
+                # Some browsers fail to load 0.0.0.0 (Issue #2755)
+                if sa[0] == '0.0.0.0':
+                    server_url = "http://127.0.0.1:{1}/".format(*sa)
                 self.logger.info("Opening {0} in the default web browser...".format(server_url))
                 webbrowser.open(server_url)
             if options['detach']:

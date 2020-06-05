@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -27,13 +27,13 @@
 
 from ast import literal_eval
 
+from nikola.plugin_categories import ShortcodePlugin
+from nikola.utils import req_missing, load_data
+
 try:
     import pygal
 except ImportError:
-    pygal = None  # NOQA
-
-from nikola.plugin_categories import ShortcodePlugin
-from nikola.utils import req_missing, load_data
+    pygal = None
 
 _site = None
 

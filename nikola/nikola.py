@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -27,40 +27,32 @@
 
 """The main Nikola site object."""
 
-import io
-from collections import defaultdict
-from copy import copy
-from pkg_resources import resource_filename
 import datetime
+import io
+import json
 import functools
+import logging
 import operator
 import os
-import json
 import sys
-import natsort
 import mimetypes
-try:
-    from urlparse import urlparse, urlsplit, urlunsplit, urljoin, unquote, parse_qs
-except ImportError:
-    from urllib.parse import urlparse, urlsplit, urlunsplit, urljoin, unquote, parse_qs  # NOQA
-
-try:
-    import pyphen
-except ImportError:
-    pyphen = None
+from collections import defaultdict
+from copy import copy
+from urllib.parse import urlparse, urlsplit, urlunsplit, urljoin, unquote, parse_qs
 
 import dateutil.tz
-import logging
-import PyRSS2Gen as rss
 import lxml.etree
 import lxml.html
-from yapsy.PluginManager import PluginManager
+import natsort
+import PyRSS2Gen as rss
+from pkg_resources import resource_filename
 from blinker import signal
+from yapsy.PluginManager import PluginManager
 
-
-from .post import Post  # NOQA
-from .state import Persistor
 from . import DEBUG, SHOW_TRACEBACKS, filters, utils, hierarchy_utils, shortcodes
+from . import metadata_extractors
+from .metadata_extractors import default_metadata_extractors_by
+from .post import Post  # NOQA
 from .plugin_categories import (
     Command,
     LateTask,
@@ -78,8 +70,12 @@ from .plugin_categories import (
     PostScanner,
     Taxonomy,
 )
-from . import metadata_extractors
-from .metadata_extractors import default_metadata_extractors_by
+from .state import Persistor
+
+try:
+    import pyphen
+except ImportError:
+    pyphen = None
 
 if DEBUG:
     logging.basicConfig(level=logging.DEBUG)
@@ -173,7 +169,64 @@ LEGAL_VALUES = {
         'sr_latin': 'sr_Latn',
     },
     'RTL_LANGUAGES': ('ar', 'fa', 'he', 'ur'),
-    'MOMENTJS_LOCALES': {
+    'LUXON_LOCALES': defaultdict(lambda: 'en', **{
+        'af': 'af',
+        'ar': 'ar',
+        'az': 'az',
+        'bg': 'bg',
+        'bn': 'bn',
+        'bs': 'bs',
+        'ca': 'ca',
+        'cs': 'cs',
+        'cz': 'cs',
+        'da': 'da',
+        'de': 'de',
+        'el': 'el',
+        'en': 'en',
+        'eo': 'eo',
+        'es': 'es',
+        'et': 'et',
+        'eu': 'eu',
+        'fa': 'fa',
+        'fi': 'fi',
+        'fr': 'fr',
+        'fur': 'fur',
+        'gl': 'gl',
+        'hi': 'hi',
+        'he': 'he',
+        'hr': 'hr',
+        'hu': 'hu',
+        'ia': 'ia',
+        'id': 'id',
+        'it': 'it',
+        'ja': 'ja',
+        'ko': 'ko',
+        'lt': 'lt',
+        'ml': 'ml',
+        'nb': 'nb',
+        'nl': 'nl',
+        'pa': 'pa',
+        'pl': 'pl',
+        'pt': 'pt',
+        'pt_br': 'pt-BR',
+        'ru': 'ru',
+        'sk': 'sk',
+        'sl': 'sl',
+        'sq': 'sq',
+        'sr': 'sr-Cyrl',
+        'sr_latin': 'sr-Latn',
+        'sv': 'sv',
+        'te': 'te',
+        'tr': 'tr',
+        'th': 'th',
+        'uk': 'uk',
+        'ur': 'ur',
+        'vi': 'vi',
+        'zh_cn': 'zh-CN',
+        'zh_tw': 'zh-TW'
+    }),
+    # TODO: remove in v9
+    'MOMENTJS_LOCALES': defaultdict(lambda: 'en', **{
         'af': 'af',
         'ar': 'ar',
         'az': 'az',
@@ -226,7 +279,7 @@ LEGAL_VALUES = {
         'vi': 'vi',
         'zh_cn': 'zh-cn',
         'zh_tw': 'zh-tw'
-    },
+    }),
     'PYPHEN_LOCALES': {
         'af': 'af',
         'bg': 'bg',
@@ -307,7 +360,7 @@ def _enclosure(post, lang):
         except KeyError:
             length = 0
         except ValueError:
-            utils.LOGGER.warn("Invalid enclosure length for post {0}".format(post.source_path))
+            utils.LOGGER.warning("Invalid enclosure length for post {0}".format(post.source_path))
             length = 0
         url = enclosure
         mime = mimetypes.guess_type(url)[0]
@@ -427,11 +480,12 @@ class Nikola(object):
             'CREATE_SINGLE_ARCHIVE': False,
             'CREATE_FULL_ARCHIVES': False,
             'CREATE_DAILY_ARCHIVE': False,
-            'DATE_FORMAT': 'YYYY-MM-dd HH:mm',
+            'DATE_FORMAT': 'yyyy-MM-dd HH:mm',
             'DISABLE_INDEXES': False,
             'DISABLE_MAIN_ATOM_FEED': False,
             'DISABLE_MAIN_RSS_FEED': False,
-            'JS_DATE_FORMAT': 'YYYY-MM-DD HH:mm',
+            'MOMENTJS_DATE_FORMAT': 'YYYY-MM-DD HH:mm',
+            'LUXON_DATE_FORMAT': {},
             'DATE_FANCINESS': 0,
             'DEFAULT_LANG': "en",
             'DEPLOY_COMMANDS': {'default': []},
@@ -453,6 +507,8 @@ class Nikola(object):
             'FRONT_INDEX_HEADER': '',
             'GALLERY_FOLDERS': {'galleries': 'galleries'},
             'GALLERY_SORT_BY_DATE': True,
+            'GALLERIES_USE_THUMBNAIL': False,
+            'GALLERIES_DEFAULT_THUMBNAIL': None,
             'GLOBAL_CONTEXT_FILLER': [],
             'GZIP_COMMAND': None,
             'GZIP_FILES': False,
@@ -480,6 +536,7 @@ class Nikola(object):
             'LINK_CHECK_WHITELIST': [],
             'LISTINGS_FOLDERS': {'listings': 'listings'},
             'LOGO_URL': '',
+            'DEFAULT_PREVIEW_IMAGE': None,
             'NAVIGATION_LINKS': {},
             'NAVIGATION_ALT_LINKS': {},
             'MARKDOWN_EXTENSIONS': ['fenced_code', 'codehilite', 'extra'],
@@ -563,6 +620,7 @@ class Nikola(object):
             'GITHUB_COMMIT_SOURCE': False,  # WARNING: conf.py.in overrides this with True for backwards compatibility
             'META_GENERATOR_TAG': True,
             'REST_FILE_INSERTION_ENABLED': True,
+            'TYPES_TO_HIDE_TITLE': [],
         }
 
         # set global_context for template rendering
@@ -636,7 +694,8 @@ class Nikola(object):
                                       'ATOM_FILENAME_BASE',
                                       'AUTHOR_PATH',
                                       'DATE_FORMAT',
-                                      'JS_DATE_FORMAT',
+                                      'LUXON_DATE_FORMAT',
+                                      'MOMENTJS_DATE_FORMAT',  # TODO: remove in v9
                                       'RSS_COPYRIGHT',
                                       'RSS_COPYRIGHT_PLAIN',
                                       # Issue #2970
@@ -654,6 +713,7 @@ class Nikola(object):
                                              'extra_head_data',
                                              'date_format',
                                              'js_date_format',
+                                             'luxon_date_format',
                                              'front_index_header',
                                              'theme_config',
                                              )
@@ -666,13 +726,27 @@ class Nikola(object):
         # WARNING: navigation_(alt_)links SHOULD NOT be added to the list above.
         #          Themes ask for [lang] there and we should provide it.
 
-        # We first have to massage JS_DATE_FORMAT, otherwise we run into trouble
+        # Luxon setup is a dict of dicts, so we need to set up the default here.
+        if not self.config['LUXON_DATE_FORMAT']:
+            self.config['LUXON_DATE_FORMAT'] = {self.config['DEFAULT_LANG']: {'preset': False, 'format': 'yyyy-MM-dd HH:mm'}}
+        # TODO: remove Moment.js stuff in v9
         if 'JS_DATE_FORMAT' in self.config:
-            if isinstance(self.config['JS_DATE_FORMAT'], dict):
-                for k in self.config['JS_DATE_FORMAT']:
-                    self.config['JS_DATE_FORMAT'][k] = json.dumps(self.config['JS_DATE_FORMAT'][k])
+            utils.LOGGER.warning("Moment.js was replaced by Luxon in the default themes, which uses different date formats.")
+            utils.LOGGER.warning("If you’re using a built-in theme, set LUXON_DATE_FORMAT. If your theme uses Moment.js, you can silence this warning by renaming JS_DATE_FORMAT to MOMENTJS_DATE_FORMAT.")
+            utils.LOGGER.warning("Sample Luxon config: LUXON_DATE_FORMAT = " + str(self.config['LUXON_DATE_FORMAT']))
+            self.config['MOMENTJS_DATE_FORMAT'] = self.config['LUXON_DATE_FORMAT']
+
+        # We first have to massage MOMENTJS_DATE_FORMAT and LUXON_DATE_FORMAT, otherwise we run into trouble
+        if 'MOMENTJS_DATE_FORMAT' in self.config:
+            if isinstance(self.config['MOMENTJS_DATE_FORMAT'], dict):
+                for k in self.config['MOMENTJS_DATE_FORMAT']:
+                    self.config['MOMENTJS_DATE_FORMAT'][k] = json.dumps(self.config['MOMENTJS_DATE_FORMAT'][k])
             else:
-                self.config['JS_DATE_FORMAT'] = json.dumps(self.config['JS_DATE_FORMAT'])
+                self.config['MOMENTJS_DATE_FORMAT'] = json.dumps(self.config['MOMENTJS_DATE_FORMAT'])
+
+        if 'LUXON_DATE_FORMAT' in self.config:
+            for k in self.config['LUXON_DATE_FORMAT']:
+                self.config['LUXON_DATE_FORMAT'][k] = json.dumps(self.config['LUXON_DATE_FORMAT'][k])
 
         for i in self.TRANSLATABLE_SETTINGS:
             try:
@@ -682,48 +756,48 @@ class Nikola(object):
 
         # A EXIF_WHITELIST implies you want to keep EXIF data
         if self.config['EXIF_WHITELIST'] and not self.config['PRESERVE_EXIF_DATA']:
-            utils.LOGGER.warn('Setting EXIF_WHITELIST implies PRESERVE_EXIF_DATA is set to True')
+            utils.LOGGER.warning('Setting EXIF_WHITELIST implies PRESERVE_EXIF_DATA is set to True')
             self.config['PRESERVE_EXIF_DATA'] = True
 
         # Setting PRESERVE_EXIF_DATA with an empty EXIF_WHITELIST implies 'keep everything'
         if self.config['PRESERVE_EXIF_DATA'] and not self.config['EXIF_WHITELIST']:
-            utils.LOGGER.warn('You are setting PRESERVE_EXIF_DATA and not EXIF_WHITELIST so EXIF data is not really kept.')
+            utils.LOGGER.warning('You are setting PRESERVE_EXIF_DATA and not EXIF_WHITELIST so EXIF data is not really kept.')
 
         if 'UNSLUGIFY_TITLES' in self.config:
-            utils.LOGGER.warn('The UNSLUGIFY_TITLES setting was renamed to FILE_METADATA_UNSLUGIFY_TITLES.')
+            utils.LOGGER.warning('The UNSLUGIFY_TITLES setting was renamed to FILE_METADATA_UNSLUGIFY_TITLES.')
             self.config['FILE_METADATA_UNSLUGIFY_TITLES'] = self.config['UNSLUGIFY_TITLES']
 
         if 'TAG_PAGES_TITLES' in self.config:
-            utils.LOGGER.warn('The TAG_PAGES_TITLES setting was renamed to TAG_TITLES.')
+            utils.LOGGER.warning('The TAG_PAGES_TITLES setting was renamed to TAG_TITLES.')
             self.config['TAG_TITLES'] = self.config['TAG_PAGES_TITLES']
 
         if 'TAG_PAGES_DESCRIPTIONS' in self.config:
-            utils.LOGGER.warn('The TAG_PAGES_DESCRIPTIONS setting was renamed to TAG_DESCRIPTIONS.')
+            utils.LOGGER.warning('The TAG_PAGES_DESCRIPTIONS setting was renamed to TAG_DESCRIPTIONS.')
             self.config['TAG_DESCRIPTIONS'] = self.config['TAG_PAGES_DESCRIPTIONS']
 
         if 'CATEGORY_PAGES_TITLES' in self.config:
-            utils.LOGGER.warn('The CATEGORY_PAGES_TITLES setting was renamed to CATEGORY_TITLES.')
+            utils.LOGGER.warning('The CATEGORY_PAGES_TITLES setting was renamed to CATEGORY_TITLES.')
             self.config['CATEGORY_TITLES'] = self.config['CATEGORY_PAGES_TITLES']
 
         if 'CATEGORY_PAGES_DESCRIPTIONS' in self.config:
-            utils.LOGGER.warn('The CATEGORY_PAGES_DESCRIPTIONS setting was renamed to CATEGORY_DESCRIPTIONS.')
+            utils.LOGGER.warning('The CATEGORY_PAGES_DESCRIPTIONS setting was renamed to CATEGORY_DESCRIPTIONS.')
             self.config['CATEGORY_DESCRIPTIONS'] = self.config['CATEGORY_PAGES_DESCRIPTIONS']
 
         if 'DISABLE_INDEXES_PLUGIN_INDEX_AND_ATOM_FEED' in self.config:
-            utils.LOGGER.warn('The DISABLE_INDEXES_PLUGIN_INDEX_AND_ATOM_FEED setting was renamed and split to DISABLE_INDEXES and DISABLE_MAIN_ATOM_FEED.')
+            utils.LOGGER.warning('The DISABLE_INDEXES_PLUGIN_INDEX_AND_ATOM_FEED setting was renamed and split to DISABLE_INDEXES and DISABLE_MAIN_ATOM_FEED.')
             self.config['DISABLE_INDEXES'] = self.config['DISABLE_INDEXES_PLUGIN_INDEX_AND_ATOM_FEED']
             self.config['DISABLE_MAIN_ATOM_FEED'] = self.config['DISABLE_INDEXES_PLUGIN_INDEX_AND_ATOM_FEED']
 
         if 'DISABLE_INDEXES_PLUGIN_RSS_FEED' in self.config:
-            utils.LOGGER.warn('The DISABLE_INDEXES_PLUGIN_RSS_FEED setting was renamed to DISABLE_MAIN_RSS_FEED.')
+            utils.LOGGER.warning('The DISABLE_INDEXES_PLUGIN_RSS_FEED setting was renamed to DISABLE_MAIN_RSS_FEED.')
             self.config['DISABLE_MAIN_RSS_FEED'] = self.config['DISABLE_INDEXES_PLUGIN_RSS_FEED']
 
         for val in self.config['DATE_FORMAT'].values.values():
             if '%' in val:
                 utils.LOGGER.error('The DATE_FORMAT setting needs to be upgraded.')
-                utils.LOGGER.notice("Nikola now uses CLDR-style date strings. http://cldr.unicode.org/translation/date-time")
-                utils.LOGGER.notice("Example: %Y-%m-%d %H:%M ==> YYYY-MM-dd HH:mm")
-                utils.LOGGER.notice("(note it’s different to what moment.js uses!)")
+                utils.LOGGER.warning("Nikola now uses CLDR-style date strings. http://cldr.unicode.org/translation/date-time")
+                utils.LOGGER.warning("Example: %Y-%m-%d %H:%M ==> yyyy-MM-dd HH:mm")
+                utils.LOGGER.warning("(note it’s different to what moment.js uses!)")
                 sys.exit(1)
 
         # Silently upgrade LOCALES (remove encoding)
@@ -735,8 +809,8 @@ class Nikola(object):
         self.config['LOCALES'] = locales
 
         if self.config.get('POSTS_SECTIONS'):
-            utils.LOGGER.warn("The sections feature has been removed and its functionality has been merged into categories.")
-            utils.LOGGER.warn("For more information on how to migrate, please read: https://getnikola.com/blog/upgrading-to-nikola-v8.html#sections-were-replaced-by-categories")
+            utils.LOGGER.warning("The sections feature has been removed and its functionality has been merged into categories.")
+            utils.LOGGER.warning("For more information on how to migrate, please read: https://getnikola.com/blog/upgrading-to-nikola-v8.html#sections-were-replaced-by-categories")
 
             for section_config_suffix, cat_config_suffix in (
                 ('DESCRIPTIONS', 'DESCRIPTIONS'),
@@ -771,9 +845,9 @@ class Nikola(object):
 
         # Make sure we have pyphen installed if we are using it
         if self.config.get('HYPHENATE') and pyphen is None:
-            utils.LOGGER.warn('To use the hyphenation, you have to install '
-                              'the "pyphen" package.')
-            utils.LOGGER.warn('Setting HYPHENATE to False.')
+            utils.LOGGER.warning('To use the hyphenation, you have to install '
+                                 'the "pyphen" package.')
+            utils.LOGGER.warning('Setting HYPHENATE to False.')
             self.config['HYPHENATE'] = False
 
         # FIXME: Internally, we still use post_pages because it's a pain to change it
@@ -791,25 +865,25 @@ class Nikola(object):
                     if plugin_name not in self.config['DISABLED_PLUGINS']:
                         missing_plugins.append(plugin_name)
                 if missing_plugins:
-                    utils.LOGGER.warn('The "{}" plugin was replaced by several taxonomy plugins (see PR #2535): {}'.format(old_plugin_name, ', '.join(new_plugin_names)))
-                    utils.LOGGER.warn('You are currently disabling "{}", but not the following new taxonomy plugins: {}'.format(old_plugin_name, ', '.join(missing_plugins)))
-                    utils.LOGGER.warn('Please also disable these new plugins or remove "{}" from the DISABLED_PLUGINS list.'.format(old_plugin_name))
+                    utils.LOGGER.warning('The "{}" plugin was replaced by several taxonomy plugins (see PR #2535): {}'.format(old_plugin_name, ', '.join(new_plugin_names)))
+                    utils.LOGGER.warning('You are currently disabling "{}", but not the following new taxonomy plugins: {}'.format(old_plugin_name, ', '.join(missing_plugins)))
+                    utils.LOGGER.warning('Please also disable these new plugins or remove "{}" from the DISABLED_PLUGINS list.'.format(old_plugin_name))
                     self.config['DISABLED_PLUGINS'].extend(missing_plugins)
         # Special-case logic for "render_indexes" to fix #2591
         if 'render_indexes' in self.config['DISABLED_PLUGINS']:
             if 'generate_rss' in self.config['DISABLED_PLUGINS'] or self.config['GENERATE_RSS'] is False:
                 if 'classify_indexes' not in self.config['DISABLED_PLUGINS']:
-                    utils.LOGGER.warn('You are disabling the "render_indexes" plugin, as well as disabling the "generate_rss" plugin or setting GENERATE_RSS to False. To achieve the same effect, please disable the "classify_indexes" plugin in the future.')
+                    utils.LOGGER.warning('You are disabling the "render_indexes" plugin, as well as disabling the "generate_rss" plugin or setting GENERATE_RSS to False. To achieve the same effect, please disable the "classify_indexes" plugin in the future.')
                     self.config['DISABLED_PLUGINS'].append('classify_indexes')
             else:
                 if not self.config['DISABLE_INDEXES']:
-                    utils.LOGGER.warn('You are disabling the "render_indexes" plugin, but not the generation of RSS feeds. Please put "DISABLE_INDEXES = True" into your configuration instead.')
+                    utils.LOGGER.warning('You are disabling the "render_indexes" plugin, but not the generation of RSS feeds. Please put "DISABLE_INDEXES = True" into your configuration instead.')
                     self.config['DISABLE_INDEXES'] = True
 
         # Disable RSS.  For a successful disable, we must have both the option
         # false and the plugin disabled through the official means.
         if 'generate_rss' in self.config['DISABLED_PLUGINS'] and self.config['GENERATE_RSS'] is True:
-            utils.LOGGER.warn('Please use GENERATE_RSS to disable RSS feed generation, instead of mentioning generate_rss in DISABLED_PLUGINS.')
+            utils.LOGGER.warning('Please use GENERATE_RSS to disable RSS feed generation, instead of mentioning generate_rss in DISABLED_PLUGINS.')
             self.config['GENERATE_RSS'] = False
             self.config['DISABLE_MAIN_RSS_FEED'] = True
 
@@ -835,7 +909,7 @@ class Nikola(object):
             self.config['BASE_URL'] = self.config.get('SITE_URL')
         # BASE_URL should *always* end in /
         if self.config['BASE_URL'] and self.config['BASE_URL'][-1] != '/':
-            utils.LOGGER.warn("Your BASE_URL doesn't end in / -- adding it, but please fix it in your config file!")
+            utils.LOGGER.warning("Your BASE_URL doesn't end in / -- adding it, but please fix it in your config file!")
             self.config['BASE_URL'] += '/'
 
         try:
@@ -858,7 +932,7 @@ class Nikola(object):
         if config.get('METADATA_FORMAT', 'nikola').lower() == 'pelican':
             if 'markdown.extensions.meta' not in config.get('MARKDOWN_EXTENSIONS', []) \
                     and 'markdown' in self.config['COMPILERS']:
-                utils.LOGGER.warn(
+                utils.LOGGER.warning(
                     'To use the Pelican metadata format, you need to add '
                     '"markdown.extensions.meta" to your MARKDOWN_EXTENSIONS setting.')
 
@@ -866,7 +940,7 @@ class Nikola(object):
         try:
             self.tzinfo = dateutil.tz.gettz(self.config['TIMEZONE'])
         except Exception as exc:
-            utils.LOGGER.warn("Error getting TZ: {}", exc)
+            utils.LOGGER.warning("Error getting TZ: {}", exc)
             self.tzinfo = dateutil.tz.gettz()
         self.config['__tzinfo__'] = self.tzinfo
 
@@ -1174,7 +1248,10 @@ class Nikola(object):
             'SHOW_SOURCELINK')
         self._GLOBAL_CONTEXT['extra_head_data'] = self.config.get('EXTRA_HEAD_DATA')
         self._GLOBAL_CONTEXT['date_fanciness'] = self.config.get('DATE_FANCINESS')
-        self._GLOBAL_CONTEXT['js_date_format'] = self.config.get('JS_DATE_FORMAT')
+        self._GLOBAL_CONTEXT['luxon_locales'] = LEGAL_VALUES['LUXON_LOCALES']
+        self._GLOBAL_CONTEXT['luxon_date_format'] = self.config.get('LUXON_DATE_FORMAT')
+        # TODO: remove in v9
+        self._GLOBAL_CONTEXT['js_date_format'] = self.config.get('MOMENTJS_DATE_FORMAT')
         self._GLOBAL_CONTEXT['momentjs_locales'] = LEGAL_VALUES['MOMENTJS_LOCALES']
         # Patch missing locales into momentjs defaulting to English (Issue #3216)
         for l in self._GLOBAL_CONTEXT['translations']:
@@ -1235,7 +1312,7 @@ class Nikola(object):
                 self._THEMES = utils.get_theme_chain(self.config['THEME'], self.themes_dirs)
             except Exception:
                 if self.config['THEME'] != LEGAL_VALUES['DEFAULT_THEME']:
-                    utils.LOGGER.warn('''Cannot load theme "{0}", using '{1}' instead.'''.format(
+                    utils.LOGGER.warning('''Cannot load theme "{0}", using '{1}' instead.'''.format(
                         self.config['THEME'], LEGAL_VALUES['DEFAULT_THEME']))
                     self.config['THEME'] = LEGAL_VALUES['DEFAULT_THEME']
                     return self._get_themes()
@@ -1245,7 +1322,7 @@ class Nikola(object):
                 bootstrap_path = utils.get_asset_path(os.path.join(
                     'assets', 'css', 'bootstrap.min.css'), self._THEMES)
                 if bootstrap_path and bootstrap_path.split(os.sep)[-4] not in ['bootstrap', 'bootstrap3', 'bootstrap4']:
-                    utils.LOGGER.warn('The USE_CDN option may be incompatible with your theme, because it uses a hosted version of bootstrap.')
+                    utils.LOGGER.warning('The USE_CDN option may be incompatible with your theme, because it uses a hosted version of bootstrap.')
 
         return self._THEMES
 
@@ -1322,21 +1399,23 @@ class Nikola(object):
                      len([ext_ for ext_ in exts if source_name.endswith(ext_)]) > 0]
             if len(langs) != 1:
                 if len(set(langs)) > 1:
-                    exit("Your file extension->compiler definition is "
-                         "ambiguous.\nPlease remove one of the file extensions "
-                         "from 'COMPILERS' in conf.py\n(The error is in "
-                         "one of {0})".format(', '.join(langs)))
+                    sys.exit("Your file extension->compiler definition is "
+                             "ambiguous.\nPlease remove one of the file "
+                             "extensions from 'COMPILERS' in conf.py\n(The "
+                             "error is in one of {0})".format(', '.join(langs)))
                 elif len(langs) > 1:
                     langs = langs[:1]
                 else:
-                    exit("COMPILERS in conf.py does not tell me how to "
-                         "handle '{0}' extensions.".format(ext))
+                    sys.exit("COMPILERS in conf.py does not tell me how to "
+                             "handle '{0}' extensions.".format(ext))
 
             lang = langs[0]
             try:
                 compiler = self.compilers[lang]
             except KeyError:
-                exit("Cannot find '{0}' compiler; it might require an extra plugin -- do you have it installed?".format(lang))
+                sys.exit("Cannot find '{0}' compiler; "
+                         "it might require an extra plugin -- "
+                         "do you have it installed?".format(lang))
             self.inverse_compilers[ext] = compiler
 
         return compiler
@@ -1364,6 +1443,10 @@ class Nikola(object):
             local_context[k] = local_context[k](local_context['lang'])
         local_context['is_rtl'] = local_context['lang'] in LEGAL_VALUES['RTL_LANGUAGES']
         local_context['url_type'] = self.config['URL_TYPE'] if url_type is None else url_type
+        local_context["translations_feedorder"] = sorted(
+            local_context["translations"],
+            key=lambda x: (int(x != local_context['lang']), x)
+        )
         # string, arguments
         local_context["formatmsg"] = lambda s, *a: s % a
         for h in local_context['template_hooks'].values():
@@ -1477,7 +1560,7 @@ class Nikola(object):
                         # python 3: already unicode
                         pass
                     nl = nl.encode('idna')
-                    if isinstance(nl, utils.bytes_str):
+                    if isinstance(nl, bytes):
                         nl = nl.decode('latin-1')  # so idna stays unchanged
                     dst = urlunsplit((dst_url.scheme,
                                       nl,
@@ -1624,7 +1707,7 @@ class Nikola(object):
     def register_shortcode(self, name, f):
         """Register function f to handle shortcode "name"."""
         if name in self.shortcode_registry:
-            utils.LOGGER.warn('Shortcode name conflict: {}', name)
+            utils.LOGGER.warning('Shortcode name conflict: {}', name)
             return
         self.shortcode_registry[name] = f
 
@@ -1715,7 +1798,7 @@ class Nikola(object):
                         else:  # let other errors raise
                             raise
             args = {
-                'title': post.title(lang),
+                'title': post.title(lang) if post.should_show_title() else None,
                 'link': post.permalink(lang, absolute=True, query=feed_append_query),
                 'description': data,
                 # PyRSS2Gen's pubDate is GMT time.
@@ -1794,7 +1877,7 @@ class Nikola(object):
         try:
             path = self.path_handlers[kind](name, lang, **kwargs)
         except KeyError:
-            utils.LOGGER.warn("Unknown path request of kind: {0}".format(kind))
+            utils.LOGGER.warning("Unknown path request of kind: {0}".format(kind))
             return ""
 
         # If path handler returns a string we consider it to be an absolute URL not requiring any
@@ -1934,7 +2017,7 @@ class Nikola(object):
         one argument (the filename).
         """
         if filter_name in self.filters:
-            utils.LOGGER.warn('''The filter "{0}" is defined more than once.'''.format(filter_name))
+            utils.LOGGER.warning('''The filter "{0}" is defined more than once.'''.format(filter_name))
         self.filters[filter_name] = filter_definition
 
     def file_exists(self, path, not_empty=False):
@@ -2419,8 +2502,8 @@ class Nikola(object):
             entry_author_name = lxml.etree.SubElement(entry_author, "name")
             entry_author_name.text = post.author(lang)
             entry_root.append(atom_link("alternate", "text/html",
-                              post.permalink(lang, absolute=True,
-                                             query=feed_append_query)))
+                                        post.permalink(lang, absolute=True,
+                                                       query=feed_append_query)))
             entry_summary = lxml.etree.SubElement(entry_root, "summary")
             if not self.config["FEED_PLAIN"]:
                 entry_summary.set("type", "html")
@@ -2443,7 +2526,7 @@ class Nikola(object):
         utils.makedirs(dst_dir)
         with io.open(output_path, "w+", encoding="utf-8") as atom_file:
             data = lxml.etree.tostring(feed_root.getroottree(), encoding="UTF-8", pretty_print=True, xml_declaration=True)
-            if isinstance(data, utils.bytes_str):
+            if isinstance(data, bytes):
                 data = data.decode('utf-8')
             atom_file.write(data)
 
@@ -2651,11 +2734,11 @@ class Nikola(object):
             "task_dep": ['render_posts'],
             "targets": [output_name],
             "actions": [(self.atom_feed_renderer,
-                        (lang,
-                         post_list,
-                         output_name,
-                         kw['filters'],
-                         context,))],
+                         (lang,
+                          post_list,
+                          output_name,
+                          kw['filters'],
+                          context,))],
             "clean": True,
             "uptodate": [utils.config_changed(kw, 'nikola.nikola.Nikola.atom_feed_renderer')] + additional_dependencies
         }

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -58,7 +58,7 @@ class CommandSubTheme(Command):
             'long': 'name',
             'default': 'custom',
             'type': str,
-            'help': 'New theme name (default: custom)',
+            'help': 'New theme name',
         },
         {
             'name': 'swatch',
@@ -72,7 +72,7 @@ class CommandSubTheme(Command):
             'short': 'p',
             'long': 'parent',
             'default': 'bootstrap4',
-            'help': 'Parent theme name (default: bootstrap4)',
+            'help': 'Parent theme name',
         },
     ]
 
@@ -95,10 +95,10 @@ class CommandSubTheme(Command):
         elif _check_for_theme('bootstrap4', themes) or _check_for_theme('bootstrap4-jinja', themes):
             version = '4'
         elif not _check_for_theme('bootstrap4', themes) and not _check_for_theme('bootstrap4-jinja', themes):
-            LOGGER.warn(
+            LOGGER.warning(
                 '"subtheme" only makes sense for themes that use bootstrap')
         elif _check_for_theme('bootstrap3-gradients', themes) or _check_for_theme('bootstrap3-gradients-jinja', themes):
-            LOGGER.warn(
+            LOGGER.warning(
                 '"subtheme" doesn\'t work well with the bootstrap3-gradients family')
 
         LOGGER.info("Creating '{0}' theme from '{1}' and '{2}'".format(
@@ -146,5 +146,5 @@ class CommandSubTheme(Command):
             cp['Family'] = {'family': cp['Family']['family']}
             cp.write(output)
 
-        LOGGER.notice(
+        LOGGER.info(
             'Theme created.  Change the THEME setting to "{0}" to use it.'.format(name))

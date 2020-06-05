@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -27,9 +27,11 @@
 """Classify the posts in archives."""
 
 import datetime
-import natsort
-import nikola.utils
 from collections import defaultdict
+
+import natsort
+
+import nikola.utils
 from nikola.plugin_categories import Taxonomy
 
 
@@ -72,7 +74,7 @@ class Archive(Taxonomy):
         # Finish setup
         self.show_list_as_subcategories_list = not site.config['CREATE_FULL_ARCHIVES']
         self.show_list_as_index = site.config['ARCHIVES_ARE_INDEXES']
-        self.template_for_single_list = "archiveindex.tmpl" if site.config['ARCHIVES_ARE_INDEXES'] else "list_post.tmpl"
+        self.template_for_single_list = "archiveindex.tmpl" if site.config['ARCHIVES_ARE_INDEXES'] else "archive.tmpl"
         # Determine maximum hierarchy height
         if site.config['CREATE_DAILY_ARCHIVE'] or site.config['CREATE_FULL_ARCHIVES']:
             self.max_levels = 3
@@ -82,7 +84,7 @@ class Archive(Taxonomy):
             self.max_levels = 0
         else:
             self.max_levels = 1
-        return super(Archive, self).set_site(site)
+        return super().set_site(site)
 
     def get_implicit_classifications(self, lang):
         """Return a list of classification strings which should always appear in posts_per_classification."""
@@ -226,7 +228,7 @@ class Archive(Taxonomy):
                 for k, v in self.archive_navigation[lang].items():
                     self.archive_navigation[lang][k] = natsort.natsorted(v, alg=natsort.ns.F | natsort.ns.IC)
 
-        return super(Archive, self).postprocess_posts_per_classification(posts_per_classification_per_language, flat_hierarchy_per_lang, hierarchy_lookup_per_lang)
+        return super().postprocess_posts_per_classification(posts_per_classification_per_language, flat_hierarchy_per_lang, hierarchy_lookup_per_lang)
 
     def should_generate_classification_page(self, classification, post_list, lang):
         """Only generates list of posts for classification if this function returns True."""

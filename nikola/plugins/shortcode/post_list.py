@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2013-2019 Udo Spallek, Roberto Alsina and others.
+# Copyright © 2013-2020 Udo Spallek, Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -122,7 +122,7 @@ class PostListShortcode(ShortcodePlugin):
 
     def set_site(self, site):
         """Set the site."""
-        super(PostListShortcode, self).set_site(site)
+        super().set_site(site)
         site.register_shortcode('post-list', self.handler)
 
     def handler(self, start=None, stop=None, reverse=False, tags=None, require_all_tags=False, categories=None,

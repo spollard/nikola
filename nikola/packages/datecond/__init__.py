@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 # Date Conditionals v0.1.6
-# Copyright © 2015-2019, Chris Warrick.
+# Copyright © 2015-2020, Chris Warrick.
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,6 @@
 
 """Date range parser."""
 
-from __future__ import print_function, unicode_literals
 import datetime
 import dateutil.parser
 import re

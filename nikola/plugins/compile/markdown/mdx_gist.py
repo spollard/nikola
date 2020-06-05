@@ -75,6 +75,10 @@ Error Case: non-existent file:
     [:gist: 4747847 doesntexist.py]
 """
 
+import requests
+
+from nikola.plugin_categories import MarkdownExtension
+from nikola.utils import get_logger
 
 try:
     from markdown.extensions import Extension
@@ -86,10 +90,6 @@ except ImportError:
     # the markdown compiler will fail first
     Extension = Pattern = object
 
-from nikola.plugin_categories import MarkdownExtension
-from nikola.utils import get_logger
-
-import requests
 
 LOGGER = get_logger('compile_markdown.mdx_gist')
 
@@ -166,7 +166,7 @@ class GistPattern(Pattern):
             pre_elem.text = AtomicString(raw_gist)
 
         except GistFetchException as e:
-            LOGGER.warn(e.message)
+            LOGGER.warning(e.message)
             warning_comment = etree.Comment(' WARNING: {0} '.format(e.message))
             noscript_elem.append(warning_comment)
 
@@ -185,15 +185,15 @@ class GistExtension(MarkdownExtension, Extension):
         for key, value in configs:
             self.setConfig(key, value)
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self, md, md_globals=None):
         """Extend Markdown."""
         gist_md_pattern = GistPattern(GIST_MD_RE, self.getConfigs())
         gist_md_pattern.md = md
-        md.inlinePatterns.add('gist', gist_md_pattern, "<not_strong")
+        md.inlinePatterns.register(gist_md_pattern, 'gist', 175)
 
         gist_rst_pattern = GistPattern(GIST_RST_RE, self.getConfigs())
         gist_rst_pattern.md = md
-        md.inlinePatterns.add('gist-rst', gist_rst_pattern, ">gist")
+        md.inlinePatterns.register(gist_rst_pattern, 'gist-rst', 176)
 
         md.registerExtension(self)
 

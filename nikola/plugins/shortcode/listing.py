@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2017-2019 Roberto Alsina and others.
+# Copyright © 2017-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -27,15 +27,11 @@
 """Listing shortcode (equivalent to reST’s listing directive)."""
 
 import os
+from urllib.parse import urlunsplit
 
 import pygments
 
 from nikola.plugin_categories import ShortcodePlugin
-
-try:
-    from urlparse import urlunsplit
-except ImportError:
-    from urllib.parse import urlunsplit  # NOQA
 
 
 class Plugin(ShortcodePlugin):
@@ -47,7 +43,7 @@ class Plugin(ShortcodePlugin):
         """Set Nikola site."""
         self.site = site
         Plugin.folders = site.config['LISTINGS_FOLDERS']
-        return super(Plugin, self).set_site(site)
+        return super().set_site(site)
 
     def handler(self, fname, language='text', linenumbers=False, filename=None, site=None, data=None, lang=None, post=None):
         """Create HTML for a listing."""

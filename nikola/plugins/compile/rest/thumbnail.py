@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2014-2019 Pelle Nilsson and others.
+# Copyright © 2014-2020 Pelle Nilsson and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -43,7 +43,7 @@ class Plugin(RestExtension):
         """Set Nikola site."""
         self.site = site
         directives.register_directive('thumbnail', Thumbnail)
-        return super(Plugin, self).set_site(site)
+        return super().set_site(site)
 
 
 class Thumbnail(Figure):

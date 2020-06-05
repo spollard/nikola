@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -26,13 +26,13 @@
 
 """Render the taxonomy overviews, classification pages and feeds."""
 
-import blinker
 import functools
-import natsort
 import os
 import sys
-
 from collections import defaultdict
+
+import blinker
+import natsort
 
 from nikola.plugin_categories import SignalHandler
 from nikola import utils, hierarchy_utils
@@ -327,7 +327,7 @@ class TaxonomiesClassifier(SignalHandler):
 
     def set_site(self, site):
         """Set site, which is a Nikola instance."""
-        super(TaxonomiesClassifier, self).set_site(site)
+        super().set_site(site)
         # Add hook for after post scanning
         blinker.signal("scanned").connect(self._do_classification)
         # Register path handlers

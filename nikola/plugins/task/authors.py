@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2015-2019 Juanjo Conti and others.
+# Copyright © 2015-2020 Juanjo Conti and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -71,7 +71,7 @@ link://author_rss/joe => /authors/joe.xml""",
 
     def set_site(self, site):
         """Set Nikola site."""
-        super(ClassifyAuthors, self).set_site(site)
+        super().set_site(site)
         self.show_list_as_index = site.config['AUTHOR_PAGES_ARE_INDEXES']
         self.template_for_single_list = "authorindex.tmpl" if self.show_list_as_index else "author.tmpl"
         self.translation_manager = utils.ClassificationTranslationManager()

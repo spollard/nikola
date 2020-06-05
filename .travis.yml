@@ -4,18 +4,14 @@ language: python
 cache:
 - apt
 - pip
-dist: xenial
-sudo: false
-python:
-- '3.4'
-- '3.5'
-- '3.6'
+dist: bionic
 matrix:
   include:
-  - language: python
-    python: '3.7'
-  - language: python
-    python: '3.8'
+  - python: '3.5'
+    dist: xenial
+  - python: '3.6'
+  - python: '3.7'
+  - python: '3.8'
   - os: osx
     language: generic
     env: NMODE=nikola OS=macOS
@@ -23,6 +19,7 @@ matrix:
     before_install:
     - brew update
     - brew uninstall gdal postgis
+    - brew unlink python@2
     - brew upgrade python
     - python3 -m venv nikola-tests-venv
     - source nikola-tests-venv/bin/activate

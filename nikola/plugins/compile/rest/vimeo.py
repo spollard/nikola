@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -26,15 +26,14 @@
 
 """Vimeo directive for reStructuredText."""
 
-from docutils import nodes
-from docutils.parsers.rst import Directive, directives
-from nikola.plugins.compile.rest import _align_choice, _align_options_base
-
-import requests
 import json
 
+import requests
+from docutils import nodes
+from docutils.parsers.rst import Directive, directives
 
 from nikola.plugin_categories import RestExtension
+from nikola.plugins.compile.rest import _align_choice, _align_options_base
 
 
 class Plugin(RestExtension):
@@ -46,7 +45,7 @@ class Plugin(RestExtension):
         """Set Nikola site."""
         self.site = site
         directives.register_directive('vimeo', Vimeo)
-        return super(Plugin, self).set_site(site)
+        return super().set_site(site)
 
 
 CODE = """<div class="vimeo-video{align}">

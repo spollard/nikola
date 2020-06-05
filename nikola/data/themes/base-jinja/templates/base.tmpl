@@ -13,18 +13,18 @@
 <body>
     <a href="#content" class="sr-only sr-only-focusable">{{ messages("Skip to main content") }}</a>
     <div id="container">
-         {{ header.html_header() }}
-         <main id="content">
+        {{ header.html_header() }}
+        <main id="content">
             {% block content %}{% endblock %}
-         </main>
-         {{ footer.html_footer() }}
+        </main>
+        {{ footer.html_footer() }}
     </div>
     {{ base.late_load_js() }}
     {% if date_fanciness != 0 %}
     <!-- fancy dates -->
     <script>
-    moment.locale("{{ momentjs_locales[lang] }}");
-    fancydates({{ date_fanciness }}, {{ js_date_format }});
+    luxon.Settings.defaultLocale = "{{ luxon_locales[lang] }}";
+    fancydates({{ date_fanciness }}, {{ luxon_date_format }});
     </script>
     <!-- end fancy dates -->
     {% endif %}

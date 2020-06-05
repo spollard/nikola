@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2014-2019 Puneeth Chaganti and others.
+# Copyright © 2014-2020 Puneeth Chaganti and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -53,6 +53,12 @@ def check_ghp_import_installed():
         req_missing(['ghp-import2'], 'deploy the site to GitHub Pages')
 
 
+class DeployFailedException(Exception):
+    """An internal exception for deployment errors."""
+
+    pass
+
+
 class CommandGitHubDeploy(Command):
     """Deploy site to GitHub Pages."""
 
@@ -73,7 +79,7 @@ class CommandGitHubDeploy(Command):
             'long': 'message',
             'default': 'Nikola auto commit.',
             'type': str,
-            'help': 'Commit message (default: Nikola auto commit.)',
+            'help': 'Commit message',
         },
     ]
 
@@ -96,12 +102,10 @@ class CommandGitHubDeploy(Command):
         # Remove drafts and future posts if requested (Issue #2406)
         undeployed_posts = clean_before_deployment(self.site)
         if undeployed_posts:
-            self.logger.notice("Deleted {0} posts due to DEPLOY_* settings".format(len(undeployed_posts)))
+            self.logger.warning("Deleted {0} posts due to DEPLOY_* settings".format(len(undeployed_posts)))
 
         # Commit and push
-        self._commit_and_push(options['commit_message'])
-
-        return
+        return self._commit_and_push(options['commit_message'])
 
     def _run_command(self, command, xfail=False):
         """Run a command that may or may not fail."""
@@ -116,7 +120,7 @@ class CommandGitHubDeploy(Command):
                 'Failed GitHub deployment -- command {0} '
                 'returned {1}'.format(e.cmd, e.returncode)
             )
-            raise SystemError(e.returncode)
+            raise DeployFailedException(e.returncode)
 
     def _commit_and_push(self, commit_first_line):
         """Commit all the files and push."""
@@ -139,7 +143,7 @@ class CommandGitHubDeploy(Command):
                 if e != 0:
                     self._run_command(['git', 'commit', '-am', commit_message])
                 else:
-                    self.logger.notice('Nothing to commit to source branch.')
+                    self.logger.info('Nothing to commit to source branch.')
 
             try:
                 source_commit = uni_check_output(['git', 'rev-parse', source])
@@ -162,7 +166,7 @@ class CommandGitHubDeploy(Command):
 
             if autocommit:
                 self._run_command(['git', 'push', '-u', remote, source])
-        except SystemError as e:
+        except DeployFailedException as e:
             return e.args[0]
 
         self.logger.info("Successful deployment")

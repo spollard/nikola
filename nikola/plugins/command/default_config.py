@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -26,10 +26,11 @@
 
 """Show the default configuration."""
 
+import sys
+
+import nikola.plugins.command.init
 from nikola.plugin_categories import Command
 from nikola.utils import get_logger
-import nikola.plugins.command.init
-import sys
 
 
 LOGGER = get_logger('default_config')

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -33,30 +33,21 @@ import json
 import mimetypes
 import os
 from collections import OrderedDict
-
-try:
-    from ruamel.yaml import YAML
-except ImportError:
-    YAML = None  # NOQA
-
-try:
-    from urlparse import urljoin
-except ImportError:
-    from urllib.parse import urljoin  # NOQA
+from urllib.parse import urljoin
 
 import natsort
-try:
-    from PIL import Image  # NOQA
-except ImportError:
-    import Image as _Image
-    Image = _Image
-
 import PyRSS2Gen as rss
+from PIL import Image
 
 from nikola.plugin_categories import Task
 from nikola import utils
 from nikola.image_processing import ImageProcessor
 from nikola.post import Post
+
+try:
+    from ruamel.yaml import YAML
+except ImportError:
+    YAML = None
 
 _image_size_cache = {}
 
@@ -69,7 +60,7 @@ class Galleries(Task, ImageProcessor):
 
     def set_site(self, site):
         """Set Nikola site."""
-        super(Galleries, self).set_site(site)
+        super().set_site(site)
         site.register_path_handler('gallery', self.gallery_path)
         site.register_path_handler('gallery_global', self.gallery_global_path)
         site.register_path_handler('gallery_rss', self.gallery_rss_path)
@@ -95,6 +86,8 @@ class Galleries(Task, ImageProcessor):
             'preserve_icc_profiles': site.config['PRESERVE_ICC_PROFILES'],
             'index_path': site.config['INDEX_PATH'],
             'disable_indexes': site.config['DISABLE_INDEXES'],
+            'galleries_use_thumbnail': site.config['GALLERIES_USE_THUMBNAIL'],
+            'galleries_default_thumbnail': site.config['GALLERIES_DEFAULT_THUMBNAIL'],
         }
 
         # Verify that no folder in GALLERY_FOLDERS appears twice
@@ -273,6 +266,7 @@ class Galleries(Task, ImageProcessor):
                 folders = []
 
                 # Generate friendly gallery names
+                fpost_list = []
                 for path, folder in folder_list:
                     fpost = self.parse_index(path, input_folder, output_folder)
                     if fpost:
@@ -281,7 +275,15 @@ class Galleries(Task, ImageProcessor):
                         ft = folder
                     if not folder.endswith('/'):
                         folder += '/'
-                    folders.append((folder, ft))
+
+                    # TODO: This is to keep compatibility with user's custom gallery.tmpl
+                    # To be removed in v9 someday
+                    if self.kw['galleries_use_thumbnail']:
+                        folders.append((folder, ft, fpost))
+                        if fpost:
+                            fpost_list.append(fpost.source_path)
+                    else:
+                        folders.append((folder, ft))
 
                 context["gallery_path"] = gallery
                 context["folders"] = natsort.natsorted(
@@ -291,6 +293,7 @@ class Galleries(Task, ImageProcessor):
                 context["enable_comments"] = self.kw['comments_in_galleries']
                 context["thumbnail_size"] = self.kw["thumbnail_size"]
                 context["pagekind"] = ["gallery_front"]
+                context["galleries_use_thumbnail"] = self.kw['galleries_use_thumbnail']
 
                 if post:
                     yield {
@@ -317,7 +320,7 @@ class Galleries(Task, ImageProcessor):
                 yield utils.apply_filters({
                     'basename': self.name,
                     'name': dst,
-                    'file_dep': file_dep,
+                    'file_dep': file_dep + dest_img_list + fpost_list,
                     'targets': [dst],
                     'actions': [
                         (self.render_gallery_index, (
@@ -493,9 +496,8 @@ class Galleries(Task, ImageProcessor):
     def parse_index(self, gallery, input_folder, output_folder):
         """Return a Post object if there is an index.txt."""
         index_path = os.path.join(gallery, "index.txt")
-        destination = os.path.join(
-            self.kw["output_folder"], output_folder,
-            os.path.relpath(gallery, input_folder))
+        destination = os.path.join(output_folder,
+                                   os.path.relpath(gallery, input_folder))
         if os.path.isfile(index_path):
             post = Post(
                 index_path,
@@ -512,8 +514,9 @@ class Galleries(Task, ImageProcessor):
             # index.txt file would be errorneously named `index`
             # (warning: galleries titled index and filenamed differently
             #  may break)
-            if post.title == 'index':
-                post.title = os.path.split(gallery)[1]
+            if post.title() == 'index':
+                for lang in post.meta.keys():
+                    post.meta[lang]['title'] = os.path.split(gallery)[1]
             # Register the post (via #2417)
             self.site.post_per_input_file[index_path] = post
         else:
@@ -570,34 +573,26 @@ class Galleries(Task, ImageProcessor):
         orig_dest_path = os.path.join(output_gallery, img_name)
         yield utils.apply_filters({
             'basename': self.name,
-            'name': thumb_path,
-            'file_dep': [img],
-            'targets': [thumb_path],
-            'actions': [
-                (self.resize_image,
-                    (img, thumb_path, self.kw['thumbnail_size'], True, self.kw['preserve_exif_data'],
-                     self.kw['exif_whitelist'], self.kw['preserve_icc_profiles']))
-            ],
-            'clean': True,
-            'uptodate': [utils.config_changed({
-                1: self.kw['thumbnail_size']
-            }, 'nikola.plugins.task.galleries:resize_thumb')],
-        }, self.kw['filters'])
-
-        yield utils.apply_filters({
-            'basename': self.name,
             'name': orig_dest_path,
             'file_dep': [img],
-            'targets': [orig_dest_path],
+            'targets': [thumb_path, orig_dest_path],
             'actions': [
                 (self.resize_image,
-                    (img, orig_dest_path, self.kw['max_image_size'], True, self.kw['preserve_exif_data'],
-                     self.kw['exif_whitelist'], self.kw['preserve_icc_profiles']))
-            ],
+                    [img], {
+                        'dst_paths': [thumb_path, orig_dest_path],
+                        'max_sizes': [self.kw['thumbnail_size'], self.kw['max_image_size']],
+                        'bigger_panoramas': True,
+                        'preserve_exif_data': self.kw['preserve_exif_data'],
+                        'exif_whitelist': self.kw['exif_whitelist'],
+                        'preserve_icc_profiles': self.kw['preserve_icc_profiles']})],
             'clean': True,
             'uptodate': [utils.config_changed({
-                1: self.kw['max_image_size']
-            }, 'nikola.plugins.task.galleries:resize_max')],
+                1: self.kw['thumbnail_size'],
+                2: self.kw['max_image_size'],
+                3: self.kw['preserve_exif_data'],
+                4: self.kw['exif_whitelist'],
+                5: self.kw['preserve_icc_profiles'],
+            }, 'nikola.plugins.task.galleries:resize_thumb')],
         }, self.kw['filters'])
 
     def remove_excluded_image(self, img, input_folder):
@@ -764,6 +759,6 @@ class Galleries(Task, ImageProcessor):
         utils.makedirs(dst_dir)
         with io.open(output_path, "w+", encoding="utf-8") as rss_file:
             data = rss_obj.to_xml(encoding='utf-8')
-            if isinstance(data, utils.bytes_str):
+            if isinstance(data, bytes):
                 data = data.decode('utf-8')
             rss_file.write(data)

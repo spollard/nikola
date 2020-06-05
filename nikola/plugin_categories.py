@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -27,23 +27,20 @@
 """Nikola plugin categories."""
 
 import io
+import logging
 import os
 import sys
+import typing
 
 import doit
-import logbook
 from doit.cmd_base import Command as DoitCommand
 from yapsy.IPlugin import IPlugin
 
 from .utils import LOGGER, first_line, get_logger, req_missing
 
-try:
-    import typing  # NOQA
-    if typing.TYPE_CHECKING:  # NOQA
-        import nikola  # NOQA
-        import nikola.post  # NOQA
-except ImportError:
-    pass
+if typing.TYPE_CHECKING:
+    import nikola
+    import nikola.post
 
 __all__ = (
     'Command',
@@ -73,7 +70,7 @@ class BasePlugin(IPlugin):
         self.inject_templates()
         self.logger = get_logger(self.name)
         if not site.debug:
-            self.logger.level = logbook.base.INFO
+            self.logger.level = logging.INFO
 
     def inject_templates(self):
         """Inject 'templates/<engine>' (if exists) very early in the theme chain."""
@@ -352,8 +349,8 @@ class PageCompiler(BasePlugin):
 
         if isinstance(extractor, MetadataExtractor):
             return extractor.split_metadata_from_text(data)
-        else:
-            return data, data
+        # Ouch!
+        return data, data
 
     def get_compiler_extensions(self) -> list:
         """Activate all the compiler extension plugins for a given compiler and return them."""
@@ -484,7 +481,7 @@ class ShortcodePlugin(BasePlugin):
         """Set Nikola site."""
         self.site = site
         site.register_shortcode(self.name, self.handler)
-        return super(ShortcodePlugin, self).set_site(site)
+        return super().set_site(site)
 
 
 class Importer(Command):

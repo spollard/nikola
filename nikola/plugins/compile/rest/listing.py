@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -31,22 +31,18 @@
 import io
 import os
 import uuid
-try:
-    from urlparse import urlunsplit
-except ImportError:
-    from urllib.parse import urlunsplit  # NOQA
+from urllib.parse import urlunsplit
 
 import docutils.parsers.rst.directives.body
 import docutils.parsers.rst.directives.misc
+import pygments
+import pygments.util
 from docutils import core
 from docutils import nodes
 from docutils.parsers.rst import Directive, directives
 from docutils.parsers.rst.roles import set_classes
 from docutils.parsers.rst.directives.misc import Include
-
 from pygments.lexers import get_lexer_by_name
-import pygments
-import pygments.util
 
 from nikola import utils
 from nikola.plugin_categories import RestExtension
@@ -142,7 +138,7 @@ class Plugin(RestExtension):
         directives.register_directive('sourcecode', CodeBlock)
         directives.register_directive('listing', Listing)
         Listing.folders = site.config['LISTINGS_FOLDERS']
-        return super(Plugin, self).set_site(site)
+        return super().set_site(site)
 
 
 # Add sphinx compatibility option
@@ -200,7 +196,7 @@ class Listing(Include):
 
     def get_code_from_file(self, data):
         """Create CodeBlock nodes from file object content."""
-        return super(Listing, self).run()
+        return super().run()
 
     def assert_has_content(self):
         """Override check from superclass with nothing.

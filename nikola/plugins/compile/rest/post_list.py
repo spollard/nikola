@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2013-2019 Udo Spallek, Roberto Alsina and others.
+# Copyright © 2013-2020 Udo Spallek, Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -31,8 +31,6 @@ from docutils.parsers.rst import Directive, directives
 from nikola import utils
 from nikola.plugin_categories import RestExtension
 
-# from nikola.plugins.shortcode.post_list import _do_post_list
-
 # WARNING: the directive name is post-list
 #          (with a DASH instead of an UNDERSCORE)
 
@@ -48,7 +46,7 @@ class Plugin(RestExtension):
         directives.register_directive('post-list', PostListDirective)
         directives.register_directive('post_list', PostListDirective)
         PostListDirective.site = site
-        return super(Plugin, self).set_site(site)
+        return super().set_site(site)
 
 
 class PostListDirective(Directive):

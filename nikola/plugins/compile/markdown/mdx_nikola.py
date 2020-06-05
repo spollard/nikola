@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -31,6 +31,9 @@
 """
 
 import re
+
+from nikola.plugin_categories import MarkdownExtension
+
 try:
     from markdown.postprocessors import Postprocessor
     from markdown.inlinepatterns import SimpleTagPattern
@@ -39,8 +42,6 @@ except ImportError:
     # No need to catch this, if you try to use this without Markdown,
     # the markdown compiler will fail first
     Postprocessor = SimpleTagPattern = Extension = object
-
-from nikola.plugin_categories import MarkdownExtension
 
 
 CODERE = re.compile('<div class="codehilite"><pre>(.*?)</pre></div>', flags=re.MULTILINE | re.DOTALL)
@@ -67,14 +68,14 @@ class NikolaExtension(MarkdownExtension, Extension):
     def _add_nikola_post_processor(self, md):
         """Extend Markdown with the postprocessor."""
         pp = NikolaPostProcessor()
-        md.postprocessors.add('nikola_post_processor', pp, '_end')
+        md.postprocessors.register(pp, 'nikola_post_processor', 1)
 
     def _add_strikethrough_inline_pattern(self, md):
         """Support PHP-Markdown style strikethrough, for example: ``~~strike~~``."""
         pattern = SimpleTagPattern(STRIKE_RE, 'del')
-        md.inlinePatterns.add('strikethrough', pattern, '_end')
+        md.inlinePatterns.register(pattern, 'strikethrough', 175)
 
-    def extendMarkdown(self, md, md_globals):
+    def extendMarkdown(self, md, md_globals=None):
         """Extend markdown to Nikola flavours."""
         self._add_nikola_post_processor(md)
         self._add_strikethrough_inline_pattern(md)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2013-2019 Damián Avila, Chris Warrick and others.
+# Copyright © 2013-2020 Damián Avila, Chris Warrick and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -85,7 +85,9 @@ class CompileIPynb(PageCompiler):
         with io.open(dest, "w+", encoding="utf8") as out_file:
             with io.open(source, "r", encoding="utf8") as in_file:
                 nb_str = in_file.read()
-            output, shortcode_deps = self.compile_string(nb_str, is_two_file, post, lang)
+            output, shortcode_deps = self.compile_string(nb_str, source,
+                                                         is_two_file, post,
+                                                         lang)
             out_file.write(output)
         if post is None:
             if shortcode_deps:
@@ -135,7 +137,7 @@ class CompileIPynb(PageCompiler):
 
             if kernel is None:
                 kernel = self.default_kernel
-                self.logger.notice('No kernel specified, assuming "{0}".'.format(kernel))
+                self.logger.warning('No kernel specified, assuming "{0}".'.format(kernel))
 
             IPYNB_KERNELS = {}
             ksm = kernelspec.KernelSpecManager()

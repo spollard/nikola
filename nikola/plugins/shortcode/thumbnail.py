@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2017-2019 Roberto Alsina, Chris Warrick and others.
+# Copyright © 2017-2020 Roberto Alsina, Chris Warrick and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -26,9 +26,9 @@
 
 """Thumbnail shortcode (equivalent to reST’s thumbnail directive)."""
 
-from nikola.plugin_categories import ShortcodePlugin
-
 import os.path
+
+from nikola.plugin_categories import ShortcodePlugin
 
 
 class ThumbnailShortcode(ShortcodePlugin):

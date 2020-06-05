@@ -23,8 +23,8 @@ with open('requirements-tests.txt', 'r') as fh:
 # ########## platform specific stuff #############
 if sys.version_info[0] == 2:
     raise Exception('Python 2 is not supported')
-elif sys.version_info[0] == 3 and sys.version_info[1] < 4:
-    raise Exception('Python 3 version < 3.4 is not supported')
+elif sys.version_info[0] == 3 and sys.version_info[1] < 5:
+    raise Exception('Python 3 version < 3.5 is not supported')
 
 ##################################################
 
@@ -99,13 +99,13 @@ class nikola_install(install):
 
 
 setup(name='Nikola',
-      version='8.0.2',
+      version='8.0.4',
       description='A modular, fast, simple, static website and blog generator',
       long_description=long_description,
       author='Roberto Alsina and others',
       author_email='ralsina@netmanagers.com.ar',
       url='https://getnikola.com/',
-      packages=find_packages(exclude=('tests',)),
+      packages=find_packages(exclude=('tests', 'tests.*')),
       license='MIT',
       keywords='website, blog, static',
       classifiers=['Development Status :: 5 - Production/Stable',
@@ -121,17 +121,17 @@ setup(name='Nikola',
                    'Operating System :: POSIX',
                    'Operating System :: Unix',
                    'Programming Language :: Python',
-                   'Programming Language :: Python :: 3.4',
                    'Programming Language :: Python :: 3.5',
                    'Programming Language :: Python :: 3.6',
                    'Programming Language :: Python :: 3.7',
+                   'Programming Language :: Python :: 3.8',
                    'Topic :: Internet',
                    'Topic :: Internet :: WWW/HTTP',
                    'Topic :: Text Processing :: Markup'],
       install_requires=dependencies,
       extras_require=extras,
       include_package_data=True,
-      python_requires='>=3.4',
+      python_requires='>=3.5',
       cmdclass={'install': nikola_install},
       data_files=[
               ('share/doc/nikola', [

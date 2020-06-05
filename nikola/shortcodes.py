@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright © 2012-2019 Roberto Alsina and others.
+# Copyright © 2012-2020 Roberto Alsina and others.
 
 # Permission is hereby granted, free of charge, to any
 # person obtaining a copy of this software and associated
@@ -26,11 +26,10 @@
 
 """Support for Hugo-style shortcodes."""
 
-
+import sys
 import uuid
 
 from .utils import LOGGER
-import sys
 
 
 class ParsingError(Exception):

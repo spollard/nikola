@@ -2,6 +2,7 @@
 <%inherit file="base.tmpl"/>
 <%namespace name="comments" file="comments_helper.tmpl"/>
 <%namespace name="ui" file="ui_helper.tmpl"/>
+<%namespace name="post_helper" file="post_helper.tmpl"/>
 <%block name="sourcelink"></%block>
 
 <%block name="content">
@@ -15,13 +16,27 @@
     </p>
     %endif
     %if folders:
-    <ul>
-    % for folder, ftitle in folders:
-        <li><a href="${folder}"><i
-        class="icon-folder-open"></i>&nbsp;${ftitle|h}</a></li>
-    % endfor
-    </ul>
-    %endif
+        % if galleries_use_thumbnail:
+            % for (folder, ftitle, fpost) in folders:
+            <div class="thumnbnail-container">
+                <a href="${folder}" class="thumbnail image-reference" title="${ftitle|h}">
+                    % if fpost and fpost.previewimage:
+                        <img src="${url_replacer(fpost.permalink(), fpost.previewimage, lang, 'full_path')}" alt="${ftitle|h}" loading="lazy" style="max-width:${thumbnail_size}px; max-height:${thumbnail_size}px;" />
+                    % else:
+                        <div style="height: ${thumbnail_size}px; width: ${thumbnail_size}px; background-color: #eee;"></div>
+                    % endif
+                <p class="thumbnail-caption">${ftitle|h}</p>
+                </a>
+            </div>
+            % endfor
+        % else:
+            <ul>
+            % for folder, ftitle in folders:
+                <li><a href="${folder}">📂&nbsp;${ftitle|h}</a></li>
+            % endfor
+            </ul>
+        % endif
+    % endif
 
 <div id="gallery_container"></div>
 %if photo_array:
@@ -29,7 +44,7 @@
 <ul class="thumbnails">
     %for image in photo_array:
         <li><a href="${image['url']}" class="thumbnail image-reference" title="${image['title']|h}">
-            <img src="${image['url_thumb']}" alt="${image['title']|h}" /></a>
+            <img src="${image['url_thumb']}" alt="${image['title']|h}" loading="lazy" /></a>
     %endfor
 </ul>
 </noscript>
@@ -58,6 +73,10 @@ ${parent.extra_head()}
     %endfor
 %endif
 <link rel="alternate" type="application/rss+xml" title="RSS" href="rss.xml">
+%if post:
+    ${post_helper.open_graph_metadata(post)}
+    ${post_helper.twitter_card_information(post)}
+%endif
 </%block>
 
 <%block name="extra_js">
